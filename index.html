@@ -99,47 +99,47 @@
 
 <script>
   let qr;
-  let isScanned = false;
+  let isScanning = false;
 
   function startScan() {
+    if (isScanning) return;
+    isScanning = true;
+
     const reader = document.getElementById("reader");
     reader.style.display = "block";
 
     qr = new Html5Qrcode("reader");
 
-    qr.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      onScanSuccess,
-      () => {}
-    );
-  }
-
-  function onScanSuccess(decodedText) {
-    if (isScanned) return; // LOCK agar tidak double scan
-    isScanned = true;
-
-    // Validasi URL
-    if (!isValidUrl(decodedText)) {
-      alert("QR tidak berisi URL valid");
-      isScanned = false;
-      return;
-    }
-
-    qr.stop().then(() => {
-      window.location.replace(decodedText); // redirect aman
+    Html5Qrcode.getCameras().then(cameras => {
+      if (cameras && cameras.length) {
+        qr.start(
+          cameras[0].id,
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          onScanSuccess,
+          onScanError
+        );
+      } else {
+        alert("Camera tidak ditemukan");
+      }
+    }).catch(err => {
+      alert("Gagal akses camera");
+      console.error(err);
     });
   }
 
-  function isValidUrl(url) {
-    try {
-      new URL(url);
-      return true;
-    } catch (e) {
-      return false;
-    }
+  function onScanSuccess(text) {
+    console.log("QR OK:", text);
+    qr.stop().then(() => {
+      window.location.replace(text);
+    });
+  }
+
+  function onScanError(err) {
+    // JANGAN dikosongkan
+    console.log("Scanning...", err);
   }
 </script>
+
 
 
 </body>
