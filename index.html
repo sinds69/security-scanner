@@ -72,6 +72,9 @@
     margin-top: 15px;
     display: none;
   }
+ #reader video {
+  object-fit: cover;
+}
 
   .footer {
     font-size: 12px;
@@ -109,25 +112,20 @@
 
     qr.start(
       { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
+      { fps: 10, aspectRatio: 1.0 },
       (text) => {
         if (locked) return;
         locked = true;
 
-        console.log("HASIL QR:", text);
-        alert("QR terbaca:\n" + text);
-
-        // NORMALISASI URL
-        if (!text.startsWith("http://") && !text.startsWith("https://")) {
-          text = "https://" + text;
-        }
+        console.log("QR OK:", text);
 
         qr.stop().then(() => {
-          window.location.href = text;
+          window.location.replace(text);
         });
       },
       (err) => {
-        console.log("Scanning...", err);
+        // Ini normal, jangan panik
+        console.log("Scanning...");
       }
     );
   }
@@ -135,7 +133,7 @@
 
 
 
-
 </body>
 </html>
+
 
