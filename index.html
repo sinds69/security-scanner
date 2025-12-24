@@ -99,48 +99,43 @@
 
 <script>
   let qr;
-  let isScanning = false;
+  let locked = false;
 
   function startScan() {
-    if (isScanning) return;
-    isScanning = true;
-
     const reader = document.getElementById("reader");
     reader.style.display = "block";
 
     qr = new Html5Qrcode("reader");
 
-    Html5Qrcode.getCameras().then(cameras => {
-      if (cameras && cameras.length) {
-        qr.start(
-          cameras[0].id,
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          onScanSuccess,
-          onScanError
-        );
-      } else {
-        alert("Camera tidak ditemukan");
+    qr.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      (text) => {
+        if (locked) return;
+        locked = true;
+
+        console.log("HASIL QR:", text);
+        alert("QR terbaca:\n" + text);
+
+        // NORMALISASI URL
+        if (!text.startsWith("http://") && !text.startsWith("https://")) {
+          text = "https://" + text;
+        }
+
+        qr.stop().then(() => {
+          window.location.href = text;
+        });
+      },
+      (err) => {
+        console.log("Scanning...", err);
       }
-    }).catch(err => {
-      alert("Gagal akses camera");
-      console.error(err);
-    });
-  }
-
-  function onScanSuccess(text) {
-    console.log("QR OK:", text);
-    qr.stop().then(() => {
-      window.location.replace(text);
-    });
-  }
-
-  function onScanError(err) {
-    // JANGAN dikosongkan
-    console.log("Scanning...", err);
+    );
   }
 </script>
 
 
 
+
 </body>
 </html>
+
