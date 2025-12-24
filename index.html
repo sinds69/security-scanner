@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Watermark Hotel - Security Checklist</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden; /* KUNCI: MATIKAN SCROLL */
+  }
+
+  body {
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    text-align: center;
+    height: 100svh; /* mobile-safe viewport */
+  }
+
+  .header {
+    margin-top: 30px;
+  }
+
+  h1 {
+    font-size: 34px;
+  }
+
+  h2 {
+    font-size: 26px;
+    font-weight: normal;
+    opacity: 0.8;
+  }
+
+  .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .scan-btn {
+    background: #22c55e;
+    color: #022c22;
+    font-size: 22px;
+    padding: 28px;
+    border-radius: 15px;
+    border: none;
+    width: 85%;
+    max-width: 320px;
+    cursor: pointer;
+  }
+
+  #reader {
+    width: 90%;
+    max-width: 320px;
+    margin-top: 15px;
+    display: none;
+  }
+
+  .footer {
+    font-size: 12px;
+    opacity: 0.6;
+    padding-bottom: 10px;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <h1>Watermark Hotel</h1>
+  <h2>Security Checklist</h2>
+</div>
+
+<div class="content">
+  <button class="scan-btn" onclick="startScan()">Tap Here to Scan QR</button>
+  <div id="reader"></div>
+</div>
+
+<div class="footer">
+  © Copyright by SIN
+</div>
+
+<script>
+  let qr;
+  let isScanned = false;
+
+  function startScan() {
+    const reader = document.getElementById("reader");
+    reader.style.display = "block";
+
+    qr = new Html5Qrcode("reader");
+
+    qr.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      onScanSuccess,
+      () => {}
+    );
+  }
+
+  function onScanSuccess(decodedText) {
+    if (isScanned) return; // LOCK agar tidak double scan
+    isScanned = true;
+
+    // Validasi URL
+    if (!isValidUrl(decodedText)) {
+      alert("QR tidak berisi URL valid");
+      isScanned = false;
+      return;
+    }
+
+    qr.stop().then(() => {
+      window.location.replace(decodedText); // redirect aman
+    });
+  }
+
+  function isValidUrl(url) {
+    try {
+      new URL(url);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+</script>
+
+
+</body>
+</html>
