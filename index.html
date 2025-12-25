@@ -37,7 +37,7 @@ body{
   height:calc(100% - 140px);
 }
 
-/* CAMERA FIXED CENTER */
+/* CAMERA */
 .camera-box{
   position:absolute;
   top:50%;
@@ -83,21 +83,24 @@ body{
 /* ACTION BUTTONS */
 .actions{
   position:absolute;
-  top:calc(50% + 180px);
+  top:calc(50% + 190px);
   left:50%;
   transform:translateX(-50%);
   display:none;
-  gap:16px;
+  gap:12px;
+  flex-wrap:wrap;
+  justify-content:center;
 }
 
 .actions button{
-  padding:14px 26px;
+  padding:14px 22px;
   font-size:16px;
   border:none;
   border-radius:12px;
   cursor:pointer;
 }
 
+.open{background:#22c55e;color:#022c22}
 .retry{background:#facc15;color:#422006}
 .cancel{background:#ef4444;color:#fff}
 
@@ -131,6 +134,7 @@ body{
   </div>
 
   <div class="actions" id="actions">
+    <button class="open" id="openBtn" onclick="openLink()">Start Checklist</button>
     <button class="retry" onclick="reloadPage()">Retry</button>
     <button class="cancel" onclick="reloadPage()">Cancel</button>
   </div>
@@ -141,21 +145,26 @@ body{
 
 <script>
 let qr;
-let scanned=false;
+let scanned = false;
+let pendingUrl = null;
+let timeoutHandle = null;
 
 function startScan(){
-  document.getElementById("scanBtn").style.display="none";
-  document.getElementById("cameraBox").style.display="block";
+  scanned = false;
+  pendingUrl = null;
 
-  // delay kecil biar Chrome render DOM dulu
-  setTimeout(initScanner,200);
+  document.getElementById("scanBtn").style.display = "none";
+  document.getElementById("cameraBox").style.display = "block";
+  document.getElementById("actions").style.display = "none";
+
+  setTimeout(initScanner, 200); // Chrome-safe render delay
 }
 
 function initScanner(){
-  qr=new Html5Qrcode("reader");
+  qr = new Html5Qrcode("reader");
 
   qr.start(
-    {facingMode:"environment"},
+    { facingMode:"environment" },
     {
       fps:5,
       aspectRatio:1,
@@ -163,27 +172,33 @@ function initScanner(){
     },
     text=>{
       if(scanned) return;
-      scanned=true;
-      redirect(text);
+      scanned = true;
+      clearTimeout(timeoutHandle);
+
+      if(!/^https?:\/\//i.test(text)){
+        text = "https://" + text;
+      }
+
+      pendingUrl = text;
+
+      // SEMUA BROWSER → TAMPILKAN TOMBOL
+      document.getElementById("actions").style.display = "flex";
     },
     ()=>{}
-  ).catch(()=>{
-    document.getElementById("actions").style.display="flex";
-  });
+  );
 
-  // timeout safety
-  setTimeout(()=>{
+  // TIMEOUT 15 DETIK
+  timeoutHandle = setTimeout(()=>{
     if(!scanned){
-      document.getElementById("actions").style.display="flex";
+      document.getElementById("actions").style.display = "flex";
     }
   },15000);
 }
 
-function redirect(text){
-  if(!/^https?:\/\//i.test(text)){
-    text="https://"+text;
+function openLink(){
+  if(pendingUrl){
+    window.location.href = pendingUrl;
   }
-  window.location.href=text;
 }
 
 function reloadPage(){
