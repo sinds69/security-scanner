@@ -80,19 +80,22 @@ body{
   cursor:pointer;
 }
 
-/* ACTION BUTTONS */
-.actions{
+/* ACTION GROUPS */
+.action-open,
+.action-retry{
   position:absolute;
   top:calc(50% + 190px);
   left:50%;
   transform:translateX(-50%);
   display:none;
   gap:12px;
-  flex-wrap:wrap;
   justify-content:center;
 }
 
-.actions button{
+.action-retry{ flex-direction:row; }
+
+.action-open button,
+.action-retry button{
   padding:14px 22px;
   font-size:16px;
   border:none;
@@ -133,8 +136,13 @@ body{
     <div id="reader"></div>
   </div>
 
-  <div class="actions" id="actions">
-    <button class="open" id="openBtn" onclick="openLink()">Start Checklist</button>
+  <!-- OPEN LINK (ONLY AFTER SUCCESS) -->
+  <div class="action-open" id="openAction">
+    <button class="open" onclick="openLink()">Open Link</button>
+  </div>
+
+  <!-- RETRY / CANCEL (TIMEOUT / ERROR) -->
+  <div class="action-retry" id="retryAction">
     <button class="retry" onclick="reloadPage()">Retry</button>
     <button class="cancel" onclick="reloadPage()">Cancel</button>
   </div>
@@ -155,9 +163,9 @@ function startScan(){
 
   document.getElementById("scanBtn").style.display = "none";
   document.getElementById("cameraBox").style.display = "block";
-  document.getElementById("actions").style.display = "none";
+  hideActions();
 
-  setTimeout(initScanner, 200); // Chrome-safe render delay
+  setTimeout(initScanner, 200);
 }
 
 function initScanner(){
@@ -180,19 +188,31 @@ function initScanner(){
       }
 
       pendingUrl = text;
-
-      // SEMUA BROWSER → TAMPILKAN TOMBOL
-      document.getElementById("actions").style.display = "flex";
+      showOpen();
     },
     ()=>{}
   );
 
-  // TIMEOUT 15 DETIK
+  // TIMEOUT 15 DETIK → HANYA RETRY/CANCEL
   timeoutHandle = setTimeout(()=>{
     if(!scanned){
-      document.getElementById("actions").style.display = "flex";
+      showRetry();
     }
   },15000);
+}
+
+function showOpen(){
+  document.getElementById("openAction").style.display = "flex";
+  document.getElementById("retryAction").style.display = "flex";
+}
+
+function showRetry(){
+  document.getElementById("retryAction").style.display = "flex";
+}
+
+function hideActions(){
+  document.getElementById("openAction").style.display = "none";
+  document.getElementById("retryAction").style.display = "none";
 }
 
 function openLink(){
