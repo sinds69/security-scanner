@@ -2,92 +2,100 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <title>Watermark Hotel - Security Checklist</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
+*{margin:0;padding:0;box-sizing:border-box}
 
-html, body {
+html,body{
   width:100%;
   height:100%;
   overflow:hidden;
 }
 
-body {
-  font-family: Arial, sans-serif;
+body{
   background:#0f172a;
-  color:white;
+  color:#fff;
+  font-family:Arial,sans-serif;
   display:flex;
   flex-direction:column;
-  justify-content:space-between;
   align-items:center;
-  text-align:center;
-  height:100svh;
 }
 
-.header { margin-top:30px; }
-h1 { font-size:34px; }
-h2 { font-size:26px; opacity:0.8; }
+/* ===== HEADER ===== */
+.header{
+  padding-top:30px;
+  text-align:center;
+}
+.header h1{font-size:34px}
+.header h2{font-size:26px;opacity:.8;font-weight:normal}
 
-.content {
+/* ===== CONTENT ===== */
+.content{
   flex:1;
   display:flex;
   flex-direction:column;
   justify-content:center;
   align-items:center;
+  gap:20px;
 }
 
-button {
-  font-size:20px;
-  padding:22px;
-  border-radius:14px;
+/* ===== SCAN BUTTON ===== */
+.scan-btn{
+  background:#22c55e;
+  color:#022c22;
+  font-size:22px;
+  padding:26px;
   border:none;
+  border-radius:16px;
   width:85%;
   max-width:320px;
   cursor:pointer;
 }
 
-#scanBtn {
-  background:#22c55e;
-  color:#022c22;
+/* ===== CAMERA READER ===== */
+#reader{
+  width:280px;
+  height:280px;
+  max-width:80vw;
+  max-height:80vw;
+  display:none;
+
+  background:black;
+  border-radius:16px;
+  overflow:hidden;
 }
 
-.action-row {
-  display:none;
+#reader video{
   width:100%;
-  max-width:320px;
+  height:100%;
+  object-fit:cover;
+}
+
+/* ===== ACTION BUTTONS ===== */
+.actions{
+  display:none;
   gap:12px;
-  margin-top:20px;
 }
 
-.action-row button {
-  width:100%;
-  font-size:18px;
-  padding:18px;
+.actions button{
+  padding:14px 22px;
+  font-size:16px;
+  border-radius:12px;
+  border:none;
+  cursor:pointer;
 }
 
-#retryBtn {
-  background:#f97316;
-  color:white;
-}
+.retry{background:#facc15;color:#422006}
+.cancel{background:#ef4444;color:#fff}
 
-#cancelBtn {
-  background:#475569;
-  color:white;
-}
-
-#reader {
-  width:90%;
-  margin-top:20px;
-  display:none;
-}
-
-.footer {
+/* ===== FOOTER ===== */
+.footer{
   font-size:12px;
-  opacity:0.6;
+  opacity:.6;
   padding-bottom:10px;
 }
 </style>
@@ -101,155 +109,136 @@ button {
 </div>
 
 <div class="content">
-  <button id="scanBtn">Tap Here to Scan QR</button>
+  <button id="scanBtn" class="scan-btn" onclick="startScan()">Tap Here to Scan QR</button>
 
   <div id="reader"></div>
 
-  <div class="action-row" id="actionRow">
-    <button id="retryBtn">Retry</button>
-    <button id="cancelBtn">Cancel</button>
+  <div class="actions" id="actions">
+    <button class="retry" onclick="retryScan()">Retry</button>
+    <button class="cancel" onclick="cancelScan()">Cancel</button>
   </div>
 </div>
 
 <div class="footer">© Copyright by SIN</div>
 
 <script>
-let locked = false;
-let qrInstance = null;
-let videoStream = null;
-let timeoutHandle = null;
-const TIMEOUT = 10000;
+let qrInstance=null;
+let videoStream=null;
+let locked=false;
+let timeoutId=null;
 
-const scanBtn   = document.getElementById("scanBtn");
-const retryBtn  = document.getElementById("retryBtn");
-const cancelBtn = document.getElementById("cancelBtn");
-const actionRow = document.getElementById("actionRow");
-const reader    = document.getElementById("reader");
+/* ===== START SCAN ===== */
+function startScan(){
+  locked=false;
+  hideButtons();
+  document.getElementById("scanBtn").style.display="none";
+  document.getElementById("reader").style.display="block";
 
-/* ===== EVENTS ===== */
-scanBtn.addEventListener("click", () => {
-  scanBtn.style.display = "none";
-  actionRow.style.display = "none";
-  reader.style.display = "block";
-
-  requestAnimationFrame(() => startScan());
-});
-
-retryBtn.addEventListener("click", () => {
-  resetToScan();
-  requestAnimationFrame(() => startScan());
-});
-
-cancelBtn.addEventListener("click", () => {
-  stopAll();
-  reader.innerHTML = "";
-  reader.style.display = "none";
-  actionRow.style.display = "none";
-  scanBtn.style.display = "block";
-});
-
-/* ===== CORE ===== */
-function startScan() {
-  locked = false;
-  startTimeout();
-
-  if ('BarcodeDetector' in window) {
-    startNative();
-  } else {
-    startHtml5();
+  if("BarcodeDetector" in window){
+    startNativeScanner();
+  }else{
+    startHtml5Scanner();
   }
-}
 
-function startTimeout() {
-  timeoutHandle = setTimeout(() => {
-    stopAll();
-
-    reader.innerHTML = "";
-
-    requestAnimationFrame(() => {
-      actionRow.style.display = "flex";
-    });
-  }, TIMEOUT);
+  timeoutId=setTimeout(showRetryCancel,15000);
 }
 
 /* ===== NATIVE SCANNER ===== */
-async function startNative() {
-  try {
-    reader.innerHTML = "";
-    const video = document.createElement("video");
-    video.setAttribute("playsinline", true);
+async function startNativeScanner(){
+  try{
+    const reader=document.getElementById("reader");
+    reader.innerHTML="";
+
+    const video=document.createElement("video");
+    video.setAttribute("playsinline",true);
+    video.style.width="100%";
+    video.style.height="100%";
+    video.style.objectFit="cover";
     reader.appendChild(video);
 
-    videoStream = await navigator.mediaDevices.getUserMedia({
-      video:{ facingMode:"environment" }
+    videoStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:"environment"}
     });
 
-    video.srcObject = videoStream;
+    video.srcObject=videoStream;
     await video.play();
 
-    const detector = new BarcodeDetector({ formats:["qr_code"] });
+    const detector=new BarcodeDetector({formats:["qr_code"]});
 
-    const loop = async () => {
-      if (locked) return;
-      const codes = await detector.detect(video);
-      if (codes.length) {
-        locked = true;
-        clearTimeout(timeoutHandle);
-        stopAll();
+    const loop=async()=>{
+      if(locked) return;
+      const codes=await detector.detect(video);
+      if(codes.length){
+        locked=true;
+        cleanup();
         redirect(codes[0].rawValue);
-      } else {
+      }else{
         requestAnimationFrame(loop);
       }
     };
     loop();
-  } catch {
-    startHtml5();
+
+  }catch(e){
+    startHtml5Scanner();
   }
 }
 
-/* ===== FALLBACK ===== */
-function startHtml5() {
-  qrInstance = new Html5Qrcode("reader");
+/* ===== HTML5 FALLBACK ===== */
+function startHtml5Scanner(){
+  qrInstance=new Html5Qrcode("reader");
   qrInstance.start(
-    { facingMode:"environment" },
-    { fps:5, aspectRatio:1 },
-    (text) => {
-      if (locked) return;
-      locked = true;
-      clearTimeout(timeoutHandle);
-      qrInstance.stop().then(() => redirect(text));
+    {facingMode:"environment"},
+    {
+      fps:5,
+      aspectRatio:1,
+      disableFlip:true
     },
-    () => {}
+    text=>{
+      if(locked) return;
+      locked=true;
+      cleanup();
+      redirect(text);
+    }
   );
 }
 
 /* ===== UTIL ===== */
-function redirect(text) {
-  if (!text.startsWith("http")) text = "https://" + text;
+function redirect(text){
+  if(!/^https?:\/\//i.test(text)){
+    text="https://"+text;
+  }
   window.location.replace(text);
 }
 
-function stopAll() {
-  clearTimeout(timeoutHandle);
-
-  if (videoStream) {
-    videoStream.getTracks().forEach(t => t.stop());
-    videoStream = null;
-  }
-
-  if (qrInstance) {
+function cleanup(){
+  clearTimeout(timeoutId);
+  if(qrInstance){
     qrInstance.stop().catch(()=>{});
-    qrInstance = null;
+    qrInstance=null;
+  }
+  if(videoStream){
+    videoStream.getTracks().forEach(t=>t.stop());
+    videoStream=null;
   }
 }
 
-function resetToScan() {
-  stopAll();
-  actionRow.style.display = "none";
-  reader.style.display = "block";
+function showRetryCancel(){
+  cleanup();
+  document.getElementById("actions").style.display="flex";
+}
+
+function retryScan(){
+  document.getElementById("actions").style.display="none";
+  startScan();
+}
+
+function cancelScan(){
+  cleanup();
+  document.getElementById("reader").style.display="none";
+  document.getElementById("actions").style.display="none";
+  document.getElementById("scanBtn").style.display="block";
 }
 </script>
 
 </body>
 </html>
-
