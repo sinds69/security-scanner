@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Watermark Hotel - Security Checklist</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  text-align: center;
+  height: 100svh;
+}
+
+.header {
+  margin-top: 30px;
+}
+
+h1 { font-size: 34px; }
+h2 { font-size: 26px; font-weight: normal; opacity: 0.8; }
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+button {
+  font-size: 22px;
+  padding: 24px;
+  border-radius: 15px;
+  border: none;
+  width: 85%;
+  max-width: 320px;
+  cursor: pointer;
+}
+
+#scanBtn {
+  background: #22c55e;
+  color: #022c22;
+}
+
+#retryBtn {
+  background: #f97316;
+  color: #fff;
+  display: none;
+  margin-top: 20px;
+}
+
+#reader {
+  width: 90%;
+  max-width: 320px;
+  margin-top: 20px;
+  display: none;
+}
+
+#reader video {
+  object-fit: cover;
+}
+
+.footer {
+  font-size: 12px;
+  opacity: 0.6;
+  padding-bottom: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <h1>Watermark Hotel</h1>
+  <h2>Security Checklist</h2>
+</div>
+
+<div class="content">
+  <button id="scanBtn" onclick="startScan()">Tap Here to Scan QR</button>
+  <div id="reader"></div>
+  <button id="retryBtn" onclick="retryScan()">Retry Scan</button>
+</div>
+
+<div class="footer">
+  © Copyright by SIN
+</div>
+
+<script>
+let locked = false;
+let qrInstance;
+let videoStream;
+let timeoutHandle;
+const SCAN_TIMEOUT = 10000; // 10 detik
+
+/* ===== ENTRY ===== */
+function startScan() {
+  resetState();
+
+  document.getElementById("scanBtn").style.display = "none";
+  document.getElementById("retryBtn").style.display = "none";
+  document.getElementById("reader").style.display = "block";
+
+  startTimeout();
+
+  if ('BarcodeDetector' in window) {
+    startNativeScanner();
+  } else {
+    startHtml5Scanner();
+  }
+}
+
+/* ===== TIMEOUT ===== */
+function startTimeout() {
+  timeoutHandle = setTimeout(() => {
+    stopAll();
+    document.getElementById("retryBtn").style.display = "block";
+  }, SCAN_TIMEOUT);
+}
+
+/* ===== NATIVE SCANNER (Chrome Android) ===== */
+async function startNativeScanner() {
+  try {
+    const reader = document.getElementById("reader");
+    reader.innerHTML = "";
+
+    const video = document.createElement("video");
+    video.setAttribute("playsinline", true);
+    reader.appendChild(video);
+
+    videoStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" }
+    });
+
+    video.srcObject = videoStream;
+    await video.play();
+
+    const detector = new BarcodeDetector({ formats: ["qr_code"] });
+
+    const scanLoop = async () => {
+      if (locked) return;
+
+      const codes = await detector.detect(video);
+      if (codes.length > 0) {
+        locked = true;
+        clearTimeout(timeoutHandle);
+        stopAll();
+        redirect(codes[0].rawValue);
+      } else {
+        requestAnimationFrame(scanLoop);
+      }
+    };
+
+    scanLoop();
+  } catch (e) {
+    startHtml5Scanner();
+  }
+}
+
+/* ===== FALLBACK HTML5-QRCODE ===== */
+function startHtml5Scanner() {
+  qrInstance = new Html5Qrcode("reader");
+
+  qrInstance.start(
+    { facingMode: "environment" },
+    { fps: 5, aspectRatio: 1.0 },
+    (text) => {
+      if (locked) return;
+      locked = true;
+
+      clearTimeout(timeoutHandle);
+
+      qrInstance.stop().then(() => {
+        redirect(text);
+      });
+    },
+    () => {}
+  );
+}
+
+/* ===== RETRY ===== */
+function retryScan() {
+  stopAll();
+  startScan();
+}
+
+/* ===== UTIL ===== */
+function redirect(text) {
+  if (!text.startsWith("http://") && !text.startsWith("https://")) {
+    text = "https://" + text;
+  }
+  window.location.replace(text);
+}
+
+function stopAll() {
+  clearTimeout(timeoutHandle);
+
+  if (videoStream) {
+    videoStream.getTracks().forEach(t => t.stop());
+    videoStream = null;
+  }
+
+  if (qrInstance) {
+    qrInstance.stop().catch(() => {});
+    qrInstance = null;
+  }
+}
+
+function resetState() {
+  locked = false;
+}
+</script>
+
+</body>
+</html>
