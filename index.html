@@ -47,11 +47,9 @@ h2 { font-size: 26px; font-weight: normal; opacity: 0.8; }
   align-items: center;
 }
 
-.scan-btn {
-  background: #22c55e;
-  color: #022c22;
+button {
   font-size: 22px;
-  padding: 28px;
+  padding: 24px;
   border-radius: 15px;
   border: none;
   width: 85%;
@@ -59,10 +57,22 @@ h2 { font-size: 26px; font-weight: normal; opacity: 0.8; }
   cursor: pointer;
 }
 
+#scanBtn {
+  background: #22c55e;
+  color: #022c22;
+}
+
+#retryBtn {
+  background: #f97316;
+  color: #fff;
+  display: none;
+  margin-top: 20px;
+}
+
 #reader {
   width: 90%;
   max-width: 320px;
-  margin-top: 15px;
+  margin-top: 20px;
   display: none;
 }
 
@@ -86,8 +96,9 @@ h2 { font-size: 26px; font-weight: normal; opacity: 0.8; }
 </div>
 
 <div class="content">
-  <button class="scan-btn" onclick="startScan()">Tap Here to Scan QR</button>
+  <button id="scanBtn" onclick="startScan()">Tap Here to Scan QR</button>
   <div id="reader"></div>
+  <button id="retryBtn" onclick="retryScan()">Retry Scan</button>
 </div>
 
 <div class="footer">
@@ -98,10 +109,18 @@ h2 { font-size: 26px; font-weight: normal; opacity: 0.8; }
 let locked = false;
 let qrInstance;
 let videoStream;
+let timeoutHandle;
+const SCAN_TIMEOUT = 10000; // 10 detik
 
-/* ENTRY POINT */
+/* ===== ENTRY ===== */
 function startScan() {
+  resetState();
+
+  document.getElementById("scanBtn").style.display = "none";
+  document.getElementById("retryBtn").style.display = "none";
   document.getElementById("reader").style.display = "block";
+
+  startTimeout();
 
   if ('BarcodeDetector' in window) {
     startNativeScanner();
@@ -110,7 +129,15 @@ function startScan() {
   }
 }
 
-/* ===== NATIVE BARCODE DETECTOR (Chrome Android) ===== */
+/* ===== TIMEOUT ===== */
+function startTimeout() {
+  timeoutHandle = setTimeout(() => {
+    stopAll();
+    document.getElementById("retryBtn").style.display = "block";
+  }, SCAN_TIMEOUT);
+}
+
+/* ===== NATIVE SCANNER (Chrome Android) ===== */
 async function startNativeScanner() {
   try {
     const reader = document.getElementById("reader");
@@ -135,7 +162,8 @@ async function startNativeScanner() {
       const codes = await detector.detect(video);
       if (codes.length > 0) {
         locked = true;
-        stopStream();
+        clearTimeout(timeoutHandle);
+        stopAll();
         redirect(codes[0].rawValue);
       } else {
         requestAnimationFrame(scanLoop);
@@ -144,7 +172,6 @@ async function startNativeScanner() {
 
     scanLoop();
   } catch (e) {
-    console.error("Native scanner gagal, fallback", e);
     startHtml5Scanner();
   }
 }
@@ -160,12 +187,20 @@ function startHtml5Scanner() {
       if (locked) return;
       locked = true;
 
+      clearTimeout(timeoutHandle);
+
       qrInstance.stop().then(() => {
         redirect(text);
       });
     },
     () => {}
   );
+}
+
+/* ===== RETRY ===== */
+function retryScan() {
+  stopAll();
+  startScan();
 }
 
 /* ===== UTIL ===== */
@@ -176,10 +211,22 @@ function redirect(text) {
   window.location.replace(text);
 }
 
-function stopStream() {
+function stopAll() {
+  clearTimeout(timeoutHandle);
+
   if (videoStream) {
     videoStream.getTracks().forEach(t => t.stop());
+    videoStream = null;
   }
+
+  if (qrInstance) {
+    qrInstance.stop().catch(() => {});
+    qrInstance = null;
+  }
+}
+
+function resetState() {
+  locked = false;
 }
 </script>
 
