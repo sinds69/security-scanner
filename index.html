@@ -37,6 +37,32 @@ body{
   height:calc(100% - 140px);
 }
 
+/* CAMERA FIXED CENTER */
+.camera-box{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  width:280px;
+  height:280px;
+  border-radius:16px;
+  overflow:hidden;
+  background:black;
+  display:none;
+}
+
+#reader{
+  width:100%;
+  height:100%;
+}
+
+#reader video{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  transform:none!important;
+}
+
 /* SCAN BUTTON */
 .scan-btn{
   position:absolute;
@@ -54,44 +80,18 @@ body{
   cursor:pointer;
 }
 
-/* CAMERA WRAPPER */
-.camera-wrapper{
-  position:absolute;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%);
-  width:280px;
-  height:280px;
-  display:none;
-}
-
-#reader{
-  width:100%;
-  height:100%;
-  background:black;
-  border-radius:16px;
-  overflow:hidden;
-}
-
-#reader video{
-  width:100%!important;
-  height:100%!important;
-  object-fit:cover!important;
-  transform:none!important;
-}
-
 /* ACTION BUTTONS */
 .actions{
   position:absolute;
-  top:calc(50% + 170px);
+  top:calc(50% + 180px);
   left:50%;
   transform:translateX(-50%);
   display:none;
-  gap:14px;
+  gap:16px;
 }
 
 .actions button{
-  padding:14px 24px;
+  padding:14px 26px;
   font-size:16px;
   border:none;
   border-radius:12px;
@@ -121,38 +121,34 @@ body{
 </div>
 
 <div class="main">
-  <button id="scanBtn" class="scan-btn" onclick="startScan()">Tap Here to Scan QR</button>
 
-  <div class="camera-wrapper" id="camWrap">
+  <button id="scanBtn" class="scan-btn" onclick="startScan()">
+    Tap Here to Scan QR
+  </button>
+
+  <div class="camera-box" id="cameraBox">
     <div id="reader"></div>
   </div>
 
   <div class="actions" id="actions">
-    <button class="retry" onclick="retryScan()">Retry</button>
-    <button class="cancel" onclick="cancelScan()">Cancel</button>
+    <button class="retry" onclick="reloadPage()">Retry</button>
+    <button class="cancel" onclick="reloadPage()">Cancel</button>
   </div>
+
 </div>
 
 <div class="footer">© Copyright by SIN</div>
 
 <script>
-let qr=null;
-let locked=false;
-let timeout=null;
+let qr;
+let scanned=false;
 
 function startScan(){
-  locked=false;
+  document.getElementById("scanBtn").style.display="none";
+  document.getElementById("cameraBox").style.display="block";
 
-  const btn=document.getElementById("scanBtn");
-  const cam=document.getElementById("camWrap");
-  const act=document.getElementById("actions");
-
-  btn.style.display="none";
-  act.style.display="none";
-  cam.style.display="block";
-
-  /* === CRITICAL CHROME FIX === */
-  setTimeout(initScanner,150); // ← WAJIB
+  // delay kecil biar Chrome render DOM dulu
+  setTimeout(initScanner,200);
 }
 
 function initScanner(){
@@ -166,49 +162,32 @@ function initScanner(){
       disableFlip:true
     },
     text=>{
-      if(locked) return;
-      locked=true;
-      cleanup();
+      if(scanned) return;
+      scanned=true;
       redirect(text);
-    }
-  ).catch(err=>{
-    console.error("Camera start failed:",err);
-    showActions();
+    },
+    ()=>{}
+  ).catch(()=>{
+    document.getElementById("actions").style.display="flex";
   });
 
-  timeout=setTimeout(showActions,15000);
-}
-
-function showActions(){
-  cleanup();
-  document.getElementById("actions").style.display="flex";
-}
-
-function retryScan(){
-  cleanup();
-  startScan();
-}
-
-function cancelScan(){
-  cleanup();
-  document.getElementById("camWrap").style.display="none";
-  document.getElementById("actions").style.display="none";
-  document.getElementById("scanBtn").style.display="block";
-}
-
-function cleanup(){
-  clearTimeout(timeout);
-  if(qr){
-    qr.stop().catch(()=>{});
-    qr=null;
-  }
+  // timeout safety
+  setTimeout(()=>{
+    if(!scanned){
+      document.getElementById("actions").style.display="flex";
+    }
+  },15000);
 }
 
 function redirect(text){
   if(!/^https?:\/\//i.test(text)){
     text="https://"+text;
   }
-  window.location.replace(text);
+  window.location.href=text;
+}
+
+function reloadPage(){
+  location.reload();
 }
 </script>
 
