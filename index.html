@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <title>Watermark Hotel - Security Checklist</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
@@ -18,57 +18,50 @@ html,body{
 
 body{
   background:#0f172a;
-  color:#fff;
+  color:white;
   font-family:Arial,sans-serif;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
 }
 
 /* HEADER */
 .header{
-  text-align:center;
   padding-top:30px;
+  text-align:center;
 }
 .header h1{font-size:34px}
 .header h2{font-size:26px;opacity:.8;font-weight:normal}
 
 /* MAIN */
 .main{
-  position:relative;
+  flex:1;
   width:100%;
-  height:calc(100% - 140px);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:18px;
 }
 
 /* CAMERA */
 .camera-box{
-  position:absolute;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%);
   width:280px;
   height:280px;
-  border-radius:16px;
-  overflow:hidden;
   background:black;
+  border-radius:18px;
+  overflow:hidden;
   display:none;
 }
 
-#reader{
-  width:100%;
-  height:100%;
-}
-
-#reader video{
+#reader, #reader video{
   width:100%!important;
   height:100%!important;
   object-fit:cover!important;
-  transform:none!important;
 }
 
-/* SCAN BUTTON */
+/* BUTTONS */
 .scan-btn{
-  position:absolute;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%);
   background:#22c55e;
   color:#022c22;
   font-size:22px;
@@ -77,42 +70,27 @@ body{
   border-radius:16px;
   width:85%;
   max-width:320px;
-  cursor:pointer;
 }
 
-/* ACTION GROUPS */
-.action-open,
-.action-retry{
-  position:absolute;
-  top:calc(50% + 190px);
-  left:50%;
-  transform:translateX(-50%);
+.actions{
   display:none;
   gap:12px;
-  justify-content:center;
 }
 
-.action-retry{ flex-direction:row; }
-
-.action-open button,
-.action-retry button{
+.actions button{
   padding:14px 22px;
   font-size:16px;
   border:none;
   border-radius:12px;
-  cursor:pointer;
 }
 
 .open{background:#22c55e;color:#022c22}
 .retry{background:#facc15;color:#422006}
-.cancel{background:#ef4444;color:#fff}
+.cancel{background:#ef4444;color:white}
 
 /* FOOTER */
 .footer{
-  position:absolute;
-  bottom:10px;
-  width:100%;
-  text-align:center;
+  padding-bottom:10px;
   font-size:12px;
   opacity:.6;
 }
@@ -136,15 +114,10 @@ body{
     <div id="reader"></div>
   </div>
 
-  <!-- OPEN LINK (ONLY AFTER SUCCESS) -->
-  <div class="action-open" id="openAction">
-    <button class="open" onclick="openLink()">Open Link</button>
-  </div>
-
-  <!-- RETRY / CANCEL (TIMEOUT / ERROR) -->
-  <div class="action-retry" id="retryAction">
-    <button class="retry" onclick="reloadPage()">Retry</button>
-    <button class="cancel" onclick="reloadPage()">Cancel</button>
+  <div class="actions" id="actions">
+    <button id="openBtn" class="open" onclick="openLink()">Open Link</button>
+    <button id="retryBtn" class="retry" onclick="reloadPage()">Retry</button>
+    <button id="cancelBtn" class="cancel" onclick="reloadPage()">Cancel</button>
   </div>
 
 </div>
@@ -155,64 +128,45 @@ body{
 let qr;
 let scanned = false;
 let pendingUrl = null;
-let timeoutHandle = null;
+let timeout;
 
 function startScan(){
   scanned = false;
   pendingUrl = null;
 
-  document.getElementById("scanBtn").style.display = "none";
-  document.getElementById("cameraBox").style.display = "block";
-  hideActions();
+  scanBtn.style.display = "none";
+  cameraBox.style.display = "block";
+  actions.style.display = "none";
+  openBtn.style.display = "none";
 
-  setTimeout(initScanner, 200);
-}
-
-function initScanner(){
   qr = new Html5Qrcode("reader");
 
   qr.start(
     { facingMode:"environment" },
-    {
-      fps:5,
-      aspectRatio:1,
-      disableFlip:true
-    },
+    { fps:5, aspectRatio:1, disableFlip:true },
     text=>{
       if(scanned) return;
       scanned = true;
-      clearTimeout(timeoutHandle);
+      clearTimeout(timeout);
 
       if(!/^https?:\/\//i.test(text)){
         text = "https://" + text;
       }
 
       pendingUrl = text;
-      showOpen();
+
+      openBtn.style.display = "inline-block";
+      actions.style.display = "flex";
     },
     ()=>{}
   );
 
-  // TIMEOUT 15 DETIK → HANYA RETRY/CANCEL
-  timeoutHandle = setTimeout(()=>{
+  timeout = setTimeout(()=>{
     if(!scanned){
-      showRetry();
+      actions.style.display = "flex";
+      openBtn.style.display = "none";
     }
   },15000);
-}
-
-function showOpen(){
-  document.getElementById("openAction").style.display = "flex";
-  document.getElementById("retryAction").style.display = "flex";
-}
-
-function showRetry(){
-  document.getElementById("retryAction").style.display = "flex";
-}
-
-function hideActions(){
-  document.getElementById("openAction").style.display = "none";
-  document.getElementById("retryAction").style.display = "none";
 }
 
 function openLink(){
