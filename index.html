@@ -126,49 +126,74 @@ body{
 
 <script>
 let qr;
-let scanned = false;
+let scanState = "IDLE"; // IDLE | SUCCESS | FAIL
 let pendingUrl = null;
 let timeout;
 
+function resetUI(){
+  actions.style.display = "none";
+  openBtn.style.display = "none";
+  retryBtn.style.display = "none";
+  cancelBtn.style.display = "none";
+}
+
 function startScan(){
-  scanned = false;
+  scanState = "IDLE";
   pendingUrl = null;
 
   scanBtn.style.display = "none";
   cameraBox.style.display = "block";
-  actions.style.display = "none";
-  openBtn.style.display = "none";
+  resetUI();
 
   qr = new Html5Qrcode("reader");
 
   qr.start(
     { facingMode:"environment" },
     { fps:5, aspectRatio:1, disableFlip:true },
-    text=>{
-      if(scanned) return;
-      scanned = true;
-      clearTimeout(timeout);
-
-      if(!/^https?:\/\//i.test(text)){
-        text = "https://" + text;
-      }
-
-      pendingUrl = text;
-
-      openBtn.style.display = "inline-block";
-      actions.style.display = "flex";
-    },
+    onScanSuccess,
     ()=>{}
   );
 
   timeout = setTimeout(()=>{
-    if(!scanned){
-      actions.style.display = "flex";
-      openBtn.style.display = "none";
+    if(scanState === "IDLE"){
+      scanState = "FAIL";
+      showFailActions();
     }
   },15000);
 }
 
+function onScanSuccess(text){
+  if(scanState !== "IDLE") return;
+
+  scanState = "SUCCESS";
+  clearTimeout(timeout);
+
+  if(!/^https?:\/\//i.test(text)){
+    text = "https://" + text;
+  }
+
+  pendingUrl = text;
+
+  qr.stop();
+
+  showSuccessAction();
+}
+
+/* UI STATES */
+function showSuccessAction(){
+  resetUI();
+  actions.style.display = "flex";
+  openBtn.style.display = "inline-block";
+}
+
+function showFailActions(){
+  resetUI();
+  actions.style.display = "flex";
+  retryBtn.style.display = "inline-block";
+  cancelBtn.style.display = "inline-block";
+}
+
+/* ACTIONS */
 function openLink(){
   if(pendingUrl){
     window.location.href = pendingUrl;
